@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phyto Solutions — Sales Insights</title>
+<meta name="description" content="Client-side Excel sales analytics dashboard. All processing happens in your browser — no data ever leaves your machine.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="css/styles.css">
+
+<!-- SheetJS (Excel reading/parsing), ExcelJS (Excel writing with cell colors —
+     SheetJS's free build cannot write cell styles, so export uses ExcelJS),
+     Chart.js (optional visualizations), and FileSaver.js (triggering downloads) —
+     vendored locally in js/vendor/ so the app works fully offline and never
+     breaks due to a CDN being blocked/unreachable. All processing still
+     happens 100% in-browser; these are just libraries, no data is ever
+     transmitted anywhere. -->
+<script src="js/vendor/xlsx.full.min.js"></script>
+<script src="js/vendor/exceljs.min.js"></script>
+<script src="js/vendor/chart.umd.min.js"></script>
+<script src="js/vendor/FileSaver.min.js"></script>
+</head>
+<body>
+<div class="app-shell">
+
+  <header class="top-bar">
+    <div class="brand">
+      <img src="assets/logo.svg" alt="" class="brand-logo" id="brandLogo">
+      <div>
+        <div class="brand-name">Phyto Solutions</div>
+        <div class="brand-tagline">Sales Insight Studio</div>
+      </div>
+    </div>
+    <button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg>
+      <span class="theme-toggle-label">Nature</span>
+    </button>
+  </header>
+
+  <section class="hero-band">
+    <div class="hero-decor" aria-hidden="true">
+      <span class="hero-glow hero-glow-gold"></span>
+      <span class="hero-glow hero-glow-mint"></span>
+      <svg class="hero-leaf hero-leaf-1" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+      <svg class="hero-leaf hero-leaf-2" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+      <div class="hero-grid-overlay"></div>
+    </div>
+
+    <div class="hero-inner">
+      <div class="hero-copy">
+        <div class="hero-eyebrow">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 5.9L20 10l-6.1 2.1L12 18l-1.9-5.9L4 10l6.1-2.1L12 2z"/></svg>
+          AI-Powered · Fast · Private
+        </div>
+        <h1>Unlock Strategic Sales Intelligence<br><span>from Every Spreadsheet</span></h1>
+        <p>Transform raw Excel workbooks into executive-ready dashboards, actionable insights, and growth opportunities — in seconds, entirely inside your browser.</p>
+
+        <div class="hero-trust-row">
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg>Fast Insights</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>100% Private</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>Powerful Analytics</span>
+          <span><svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>Powered by Phyto</span>
+        </div>
+
+        <div class="upload-card">
+          <div class="dropzone" id="dropzone">
+            <div class="dropzone-icon-wrap">
+              <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 16V4m0 0L7 9m5-5l5 5"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
+            </div>
+            <div class="dropzone-title">Upload Your Excel Workbook</div>
+            <div class="dropzone-sub">Drag &amp; drop your file here, or click to browse</div>
+            <div class="dropzone-meta">.xlsx, .xls, .xlsm &nbsp;·&nbsp; Processed locally &nbsp;·&nbsp; Never uploaded</div>
+            <span class="dropzone-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+              Select Excel File
+            </span>
+            <input type="file" id="fileInput" accept=".xlsx,.xls,.xlsm">
+          </div>
+
+          <div class="file-chip" id="fileChip" style="display:none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3v4a1 1 0 001 1h4"/><path d="M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z"/></svg>
+            <span id="fileChipName"></span>
+            <button id="removeFileBtn" type="button" aria-label="Remove file">&times;</button>
+          </div>
+
+          <div class="upload-privacy-note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg>
+            Your data is secure. All processing happens in your browser.
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-preview" aria-hidden="true">
+        <div class="preview-card">
+          <div class="preview-card-header">
+            <span class="preview-dot preview-dot-red"></span>
+            <span class="preview-dot preview-dot-amber"></span>
+            <span class="preview-dot preview-dot-green"></span>
+            <span class="preview-live"><i></i>Live Preview</span>
+          </div>
+
+          <div class="preview-kpis">
+            <div class="preview-kpi">
+              <span class="pk-label">Revenue Trend</span>
+              <span class="pk-value">₹4.82Cr</span>
+              <span class="pk-trend up">▲ 18%</span>
+            </div>
+            <div class="preview-kpi">
+              <span class="pk-label">Top Division</span>
+              <span class="pk-value">North Zone</span>
+              <span class="pk-trend up">▲ 12%</span>
+            </div>
+          </div>
+
+          <div class="preview-chart">
+            <svg viewBox="0 0 300 110" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="previewChartFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="var(--hero-gold)" stop-opacity="0.45"/>
+                  <stop offset="100%" stop-color="var(--hero-gold)" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <path d="M0,80 L30,68 L60,74 L90,50 L120,58 L150,34 L180,44 L210,26 L240,32 L270,14 L300,20 L300,110 L0,110 Z" fill="url(#previewChartFill)"/>
+              <path d="M0,80 L30,68 L60,74 L90,50 L120,58 L150,34 L180,44 L210,26 L240,32 L270,14 L300,20" fill="none" stroke="var(--hero-gold)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+
+          <div class="preview-bars">
+            <div class="bar-row"><span>Product A</span><div class="bar"><i style="width:86%"></i></div></div>
+            <div class="bar-row"><span>Product B</span><div class="bar"><i style="width:63%"></i></div></div>
+            <div class="bar-row"><span>Product C</span><div class="bar"><i style="width:41%"></i></div></div>
+          </div>
+
+          <div class="preview-donut-row">
+            <div class="preview-donut">
+              <svg viewBox="0 0 42 42">
+                <circle class="donut-track" cx="21" cy="21" r="15.9"/>
+                <circle class="donut-value" cx="21" cy="21" r="15.9" stroke-dasharray="74 100"/>
+              </svg>
+              <span>+24%</span>
+            </div>
+            <div class="preview-donut-label">Growth Opportunity<br><small>vs last quarter</small></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="feature-grid-section">
+    <div class="feature-grid">
+      <div class="feature-item">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div>
+        <h3>Revenue Intelligence</h3>
+        <p>Uncover revenue drivers, month-over-month trends, and growth opportunities.</p>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></div>
+        <h3>Product Analytics</h3>
+        <p>Analyze product-wise units and value performance across your full catalog.</p>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg></div>
+        <h3>Performance Tracking</h3>
+        <p>Track division-wise performance and quickly identify top contributors.</p>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></div>
+        <h3>Trend Detection</h3>
+        <p>Spot growth and decline early with automatic month-over-month highlighting.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="trust-bar-section">
+    <div class="trust-bar">
+      <div class="trust-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6l8-4z"/></svg>
+        <div><strong>100% Local Processing</strong><span>Your data never leaves your device.</span></div>
+      </div>
+      <div class="trust-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+        <div><strong>Results in Seconds</strong><span>Instant dashboards and actionable insights.</span></div>
+      </div>
+      <div class="trust-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+        <div><strong>Enterprise Privacy</strong><span>No uploads. No storage. Just complete privacy.</span></div>
+      </div>
+      <div class="trust-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg>
+        <div><strong>Trusted &amp; Reliable</strong><span>Built for sales leaders who demand the best.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <main class="main-content">
+
+    <div class="controls-panel" id="controlsPanel">
+      <div class="controls-row">
+        <div class="control-group">
+          <label for="sheetSelect">Sheet to analyze</label>
+          <select id="sheetSelect"></select>
+        </div>
+      </div>
+
+      <div class="section-title" style="margin-top:20px">
+        <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+        Confirm detected columns
+      </div>
+      <p style="color:var(--color-text-muted);font-size:0.85rem;margin:-8px 0 14px">
+        Each column below was auto-classified. Review and correct anything that looks wrong before analyzing.
+      </p>
+      <div id="schemaReviewPanel"></div>
+
+      <div class="controls-row" style="margin-top:20px">
+        <div class="control-group" style="flex:0 0 auto">
+          <label>&nbsp;</label>
+          <button class="btn btn-primary" id="analyzeBtn" type="button" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
+            Analyze
+          </button>
+        </div>
+        <div class="control-group" style="flex:0 0 auto">
+          <label>&nbsp;</label>
+          <button class="btn btn-secondary" id="exportBtn" type="button" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+            Download Insights (.xlsx)
+          </button>
+        </div>
+      </div>
+      <div class="loading-bar" id="loadingBar">
+        <div class="spinner"></div>
+        <span>Processing in your browser…</span>
+      </div>
+    </div>
+
+    <div class="dashboard" id="dashboard">
+
+      <div class="section-title">
+        <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+        Overview
+      </div>
+      <div class="kpi-grid" id="kpiGrid"></div>
+
+      <div class="section-title">
+        <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+        Management Insights
+      </div>
+      <div class="insight-grid" id="insightGrid"></div>
+
+      <div class="section-title">
+        <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+        Detailed Summaries
+      </div>
+      <div class="breakdown-controls">
+        <div class="control-group" style="max-width:280px">
+          <label for="breakdownSelect">Break down by</label>
+          <select id="breakdownSelect"></select>
+        </div>
+      </div>
+      <div class="table-wrap" id="breakdownTableWrap"></div>
+
+      <div class="section-title">
+        <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+        Visualize
+      </div>
+      <div class="chart-panel">
+        <div class="chart-controls">
+          <div class="control-group">
+            <label for="chartTypeSelect">Chart type</label>
+            <select id="chartTypeSelect">
+              <option value="bar">Bar Chart</option>
+              <option value="line">Line Chart</option>
+              <option value="pie">Pie Chart</option>
+              <option value="histogram">Histogram</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label for="chartMetricSelect">Metric</label>
+            <select id="chartMetricSelect"></select>
+          </div>
+          <div class="control-group">
+            <label for="chartSourceSelect">Breakdown</label>
+            <select id="chartSourceSelect"></select>
+          </div>
+        </div>
+        <div class="chart-canvas-wrap">
+          <canvas id="chartCanvas"></canvas>
+          <div class="empty-state" id="chartEmptyState" style="display:none">Not enough data to render this chart.</div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <footer class="app-footer">
+    Phyto Solutions — Sales Insight Studio. All processing happens locally in your browser; Build by POONAM SETIA.
+  </footer>
+</div>
+
+<script src="js/theme.js"></script>
+<script src="js/parser.js"></script>
+<script src="js/schema.js"></script>
+<script src="js/analysis.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/exporter.js"></script>
+<script src="js/schemaReview.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
