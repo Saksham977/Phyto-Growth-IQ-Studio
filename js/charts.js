@@ -9,7 +9,9 @@
  */
 
 const PhytoCharts = (() => {
-  let chartInstance = null;
+  // Keyed by canvasId so multiple independent chart instances (one per tab)
+  // can coexist without tearing down each other's canvas.
+  const chartInstances = {};
 
   function getThemeColors() {
     const styles = getComputedStyle(document.documentElement);
@@ -31,20 +33,37 @@ const PhytoCharts = (() => {
     return PALETTE_EXTRA[i % PALETTE_EXTRA.length];
   }
 
+  function colorWithAlpha(hex, alpha) {
+    const h = hex.replace('#', '');
+    const r = parseInt(h.substring(0, 2), 16);
+    const g = parseInt(h.substring(2, 4), 16);
+    const b = parseInt(h.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
   /**
    * Builds a Chart.js config given: chartType, measureKey, dimensionKey (the
    * selected "breakdown"), and the analysis result. Looks the relevant
    * dimension summary up by key instead of a binary product/division ternary,
    * so this works for any number of detected dimensions/measures.
+   *
+   * excludedKeys (optional): Set<string> of row labels removed from the
+   * Detailed Summaries view for this SAME dimension (see dashboard.js's
+   * renderBreakdownTable) — dropped here too so the chart always matches
+   * what's showing on screen, e.g. an excluded "(Unspecified State)" outlier
+   * disappears from the chart the same way it disappears from the table.
    */
-  function buildConfig(chartType, measureKey, dimensionKey, result) {
+  function buildConfig(chartType, measureKey, dimensionKey, result, excludedKeys) {
     const colors = getThemeColors();
     const summary = result.dimensionSummaries.find(s => s.dimensionKey === dimensionKey);
     const measure = result.parsed.measures.find(m => m.key === measureKey);
     if (!summary || !measure) return null;
 
+    const excluded = excludedKeys || new Set();
+    const visibleRows = summary.rows.filter(r => !excluded.has(r.label));
+
     const label = summary.dimensionLabel;
-    const topRows = [...summary.rows]
+    const topRows = [...visibleRows]
       .sort((a, b) => b.byMeasure[measureKey].total - a.byMeasure[measureKey].total)
       .slice(0, 10);
 
@@ -81,8 +100,9 @@ const PhytoCharts = (() => {
       };
     }
 
-    if (chartType === 'line') {
+    if (chartType === 'line' || chartType === 'area') {
       if (!measure.hasTimeSeries || summary.timePeriods.length === 0) return null;
+      const isArea = chartType === 'area';
       return {
         type: 'line',
         data: {
@@ -91,7 +111,8 @@ const PhytoCharts = (() => {
             label: r.label,
             data: r.byMeasure[measureKey].byPeriod.map(p => p.value),
             borderColor: paletteColor(i),
-            backgroundColor: paletteColor(i),
+            backgroundColor: isArea ? colorWithAlpha(paletteColor(i), 0.28) : paletteColor(i),
+            fill: isArea ? (i === 0 ? 'origin' : '-1') : false,
             tension: 0.35,
             spanGaps: true,
           })),
@@ -106,9 +127,9 @@ const PhytoCharts = (() => {
       };
     }
 
-    if (chartType === 'pie') {
+    if (chartType === 'pie' || chartType === 'donut') {
       return {
-        type: 'pie',
+        type: chartType === 'donut' ? 'doughnut' : 'pie',
         data: {
           labels: topRows.map(r => r.label),
           datasets: [{
@@ -121,7 +142,7 @@ const PhytoCharts = (() => {
     }
 
     if (chartType === 'histogram') {
-      const allVals = summary.rows.map(r => r.byMeasure[measureKey].total).filter(v => v !== null && v !== undefined);
+      const allVals = visibleRows.map(r => r.byMeasure[measureKey].total).filter(v => v !== null && v !== undefined);
       if (allVals.length === 0) return null;
       const min = Math.min(...allVals), max = Math.max(...allVals);
       const bucketCount = 8;
@@ -163,22 +184,22 @@ const PhytoCharts = (() => {
     return null;
   }
 
-  function render(canvasId, chartType, measureKey, dimensionKey, result) {
+  function render(canvasId, chartType, measureKey, dimensionKey, result, excludedKeys) {
     const ctx = document.getElementById(canvasId).getContext('2d');
-    const config = buildConfig(chartType, measureKey, dimensionKey, result);
-    if (chartInstance) {
-      chartInstance.destroy();
-      chartInstance = null;
+    const config = buildConfig(chartType, measureKey, dimensionKey, result, excludedKeys);
+    if (chartInstances[canvasId]) {
+      chartInstances[canvasId].destroy();
+      delete chartInstances[canvasId];
     }
     if (!config) return false;
-    chartInstance = new Chart(ctx, config);
+    chartInstances[canvasId] = new Chart(ctx, config);
     return true;
   }
 
-  function destroy() {
-    if (chartInstance) {
-      chartInstance.destroy();
-      chartInstance = null;
+  function destroy(canvasId) {
+    if (chartInstances[canvasId]) {
+      chartInstances[canvasId].destroy();
+      delete chartInstances[canvasId];
     }
   }
 
