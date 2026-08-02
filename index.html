@@ -9,9 +9,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/styles.css?v=7">
 
-<!-- SheetJS (Excel reading/parsing), ExcelJS ( Excel writing with cell colors —
+<!-- SheetJS (Excel reading/parsing), ExcelJS (Excel writing with cell colors —
      SheetJS's free build cannot write cell styles, so export uses ExcelJS),
      Chart.js (optional visualizations), and FileSaver.js (triggering downloads) —
      vendored locally in js/vendor/ so the app works fully offline and never
@@ -24,6 +24,24 @@
 <script src="js/vendor/FileSaver.min.js"></script>
 </head>
 <body>
+
+<!-- Lock screen: a simple UX deterrent, not real security (this is a static
+     site with no server — anyone with dev tools can bypass a client-side
+     check). Kept as a plain overlay with no persistence, so the app
+     re-locks on every refresh and via the Logout button, per spec. -->
+<div class="lock-screen" id="lockScreen">
+  <div class="lock-card">
+    <img src="assets/logo.svg" alt="" class="lock-logo">
+    <div class="lock-title">Phyto-Growth-IQ-Studio</div>
+    <div class="lock-sub">Enter password to continue</div>
+    <form id="lockForm" autocomplete="off">
+      <input type="password" id="lockPasswordInput" class="lock-input" placeholder="Password" autofocus>
+      <button type="submit" class="btn btn-primary lock-submit">Unlock</button>
+    </form>
+    <div class="lock-error" id="lockError" style="display:none">Incorrect password. Please try again.</div>
+  </div>
+</div>
+
 <div class="app-shell">
 
   <header class="top-bar">
@@ -34,11 +52,34 @@
         <div class="brand-tagline">Sales Insight Studio</div>
       </div>
     </div>
-    <button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle theme">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg>
-      <span class="theme-toggle-label">Nature</span>
-    </button>
+    <div class="top-bar-actions">
+      <button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg>
+        <span class="theme-toggle-label">Nature</span>
+      </button>
+      <button class="theme-toggle" id="logoutBtn" type="button" aria-label="Log out">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+        Logout
+      </button>
+    </div>
   </header>
+
+  <nav class="tab-nav">
+    <button class="tab-nav-btn active" type="button" data-tab="tab1">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
+      Primary Sales Data
+    </button>
+    <button class="tab-nav-btn" type="button" data-tab="tab2">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Doctor Wise Analysis
+    </button>
+    <button class="tab-nav-btn" type="button" data-tab="tab3">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
+      Secondary Sale
+    </button>
+  </nav>
+
+  <div class="tab-content active" id="tabContent-tab1">
 
   <section class="hero-band">
     <div class="hero-decor" aria-hidden="true">
@@ -229,6 +270,14 @@
             Download Insights (.xlsx)
           </button>
         </div>
+        <div class="control-group" style="flex:0 0 auto">
+          <label>&nbsp;</label>
+          <button class="btn btn-secondary" id="newInsightsBtn" type="button" disabled>New Insights</button>
+        </div>
+        <div class="control-group" style="flex:0 0 auto">
+          <label>&nbsp;</label>
+          <button class="btn btn-secondary" id="downloadNewInsightsBtn" type="button" disabled>Download New Insights (.xlsx)</button>
+        </div>
       </div>
       <div class="loading-bar" id="loadingBar">
         <div class="spinner"></div>
@@ -246,9 +295,42 @@
 
       <div class="section-title">
         <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
-        Management Insights
+        Filters
+      </div>
+      <div id="filterPanel"></div>
+
+      <div class="section-title">
+        <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+        Custom Columns <span class="section-hint">Optional — group any column's values into a new one (e.g. State into Zone)</span>
+      </div>
+      <div id="activeDerivedColumns"></div>
+      <div id="deriveColumnBuilder"></div>
+
+      <div class="section-title">
+        <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+        Management Insights <span class="section-hint" id="insightsModeLabel"></span>
       </div>
       <div class="insight-grid" id="insightGrid"></div>
+
+      <div class="section-title">
+        <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+        Performance Analysis
+      </div>
+      <div class="controls-row">
+        <div class="control-group" style="max-width:220px">
+          <label for="perfDimensionSelect">Analyze by</label>
+          <select id="perfDimensionSelect"></select>
+        </div>
+        <div class="control-group" style="max-width:220px">
+          <label for="perfMeasureSelect">Measure</label>
+          <select id="perfMeasureSelect"></select>
+        </div>
+        <div class="control-group" style="max-width:180px">
+          <label for="perfThresholdInput">Threshold</label>
+          <input type="number" id="perfThresholdInput" value="100000" step="any">
+        </div>
+      </div>
+      <div id="performancePanel"></div>
 
       <div class="section-title">
         <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
@@ -259,8 +341,50 @@
           <label for="breakdownSelect">Break down by</label>
           <select id="breakdownSelect"></select>
         </div>
+        <div class="control-group" style="flex:0 0 auto">
+          <label class="insights-focus-toggle-label">
+            <input type="checkbox" id="insightsFocusToggle"> Column-wise Insights
+          </label>
+        </div>
+        <div class="control-group" style="max-width:200px">
+          <label for="insightsFocusDimension">Insights dimension</label>
+          <select id="insightsFocusDimension" disabled></select>
+        </div>
+        <div class="control-group" style="max-width:180px">
+          <label for="insightsFocusMeasure">Insights measure</label>
+          <select id="insightsFocusMeasure" disabled></select>
+        </div>
+        <div class="control-group" style="flex:0 0 auto">
+          <label>&nbsp;</label>
+          <button class="btn btn-secondary" id="saveViewBtn" type="button">Save View</button>
+        </div>
+        <div class="control-group" style="flex:0 0 auto">
+          <label>&nbsp;</label>
+          <button class="btn btn-secondary" id="exportViewBtn" type="button" disabled>Download This View (.xlsx)</button>
+        </div>
       </div>
+      <div id="columnSelector"></div>
       <div class="table-wrap" id="breakdownTableWrap"></div>
+
+      <div class="section-title">
+        <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+        Group By &amp; Order By <span class="section-hint">Optional, SQL-style — pick field(s) below to group by; nothing changes until you do</span>
+      </div>
+      <div class="groupby-orderby-controls">
+        <div class="control-group" style="flex:2 1 260px">
+          <label>Group by</label>
+          <div id="groupByControls"></div>
+        </div>
+        <div class="control-group" style="flex:1 1 260px">
+          <label>Order by</label>
+          <div class="orderby-controls-inline" id="orderByControls"></div>
+        </div>
+        <div class="control-group" style="flex:0 0 auto">
+          <label>&nbsp;</label>
+          <button class="btn btn-secondary" id="exportGroupedBtn" type="button" disabled>Download Grouped View (.xlsx)</button>
+        </div>
+      </div>
+      <div class="table-wrap" id="groupedTableWrap"></div>
 
       <div class="section-title">
         <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
@@ -273,8 +397,11 @@
             <select id="chartTypeSelect">
               <option value="bar">Bar Chart</option>
               <option value="line">Line Chart</option>
+              <option value="area">Area Chart</option>
               <option value="pie">Pie Chart</option>
+              <option value="donut">Donut Chart</option>
               <option value="histogram">Histogram</option>
+              <option value="heatmap">Heatmap</option>
             </select>
           </div>
           <div class="control-group">
@@ -285,9 +412,14 @@
             <label for="chartSourceSelect">Breakdown</label>
             <select id="chartSourceSelect"></select>
           </div>
+          <div class="control-group" style="flex:0 0 auto">
+            <label>&nbsp;</label>
+            <button class="btn btn-secondary" id="chartExcludeUnspecifiedBtn" type="button" style="display:none">Exclude Unspecified</button>
+          </div>
         </div>
         <div class="chart-canvas-wrap">
           <canvas id="chartCanvas"></canvas>
+          <div id="heatmapWrap" style="display:none"></div>
           <div class="empty-state" id="chartEmptyState" style="display:none">Not enough data to render this chart.</div>
         </div>
       </div>
@@ -296,19 +428,467 @@
 
   </main>
 
+  </div><!-- /tabContent-tab1 -->
+
+  <div class="tab-content" id="tabContent-tab2">
+    <section class="tab-intro-section">
+      <div class="tab-intro-inner">
+        <h2 class="tab-intro-title">Doctor Wise Analysis</h2>
+        <p class="tab-intro-sub">
+          Upload doctor-wise sales data (e.g. Dr Name, Month, Item Name, Qty, Amount) to analyze
+          performance by doctor, party, product, or month — the same auto-detection and review step
+          as Primary Sales Data, applied to a different file.
+        </p>
+        <div class="upload-card">
+          <div class="dropzone" id="dropzone2">
+            <div class="dropzone-icon-wrap">
+              <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 16V4m0 0L7 9m5-5l5 5"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
+            </div>
+            <div class="dropzone-title">Upload Doctor Sale Data</div>
+            <div class="dropzone-sub">Drag &amp; drop your file here, or click to browse</div>
+            <div class="dropzone-meta">.xlsx, .xls, .xlsm &nbsp;·&nbsp; Processed locally &nbsp;·&nbsp; Never uploaded</div>
+            <span class="dropzone-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+              Select Excel File
+            </span>
+            <input type="file" id="fileInput2" accept=".xlsx,.xls,.xlsm">
+          </div>
+          <div class="file-chip" id="fileChip2" style="display:none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3v4a1 1 0 001 1h4"/><path d="M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z"/></svg>
+            <span id="fileChipName2"></span>
+            <button id="removeFileBtn2" type="button" aria-label="Remove file">&times;</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <main class="main-content">
+      <div class="controls-panel" id="controlsPanel2">
+        <div class="controls-row">
+          <div class="control-group">
+            <label for="sheetSelect2">Sheet to analyze</label>
+            <select id="sheetSelect2"></select>
+          </div>
+        </div>
+
+        <div class="section-title" style="margin-top:20px">
+          <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+          Confirm detected columns
+        </div>
+        <p style="color:var(--color-text-muted);font-size:0.85rem;margin:-8px 0 14px">
+          Each column below was auto-classified. Review and correct anything that looks wrong before analyzing.
+        </p>
+        <div id="schemaReviewPanel2"></div>
+
+        <div class="controls-row" style="margin-top:20px">
+          <div class="control-group" style="flex:0 0 auto">
+            <label>&nbsp;</label>
+            <button class="btn btn-primary" id="analyzeBtn2" type="button" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
+              Analyze
+            </button>
+          </div>
+          <div class="control-group" style="flex:0 0 auto">
+            <label>&nbsp;</label>
+            <button class="btn btn-secondary" id="exportBtn2" type="button" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+              Download Insights (.xlsx)
+            </button>
+          </div>
+          <div class="control-group" style="flex:0 0 auto">
+            <label>&nbsp;</label>
+            <button class="btn btn-secondary" id="newInsightsBtn2" type="button" disabled>New Insights</button>
+          </div>
+          <div class="control-group" style="flex:0 0 auto">
+            <label>&nbsp;</label>
+            <button class="btn btn-secondary" id="downloadNewInsightsBtn2" type="button" disabled>Download New Insights (.xlsx)</button>
+          </div>
+        </div>
+        <div class="loading-bar" id="loadingBar2">
+          <div class="spinner"></div>
+          <span>Processing in your browser…</span>
+        </div>
+      </div>
+
+      <div class="dashboard" id="dashboard2">
+        <div class="section-title">
+          <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+          Overview
+        </div>
+        <div class="kpi-grid" id="kpiGrid2"></div>
+
+        <div class="section-title">
+          <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+          Filters
+        </div>
+        <div id="filterPanel2"></div>
+
+        <div class="section-title">
+          <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+          Custom Columns <span class="section-hint">Optional — group any column's values into a new one (e.g. State into Zone)</span>
+        </div>
+        <div id="activeDerivedColumns2"></div>
+        <div id="deriveColumnBuilder2"></div>
+
+        <div class="section-title">
+          <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+          Management Insights <span class="section-hint" id="insightsModeLabel2"></span>
+        </div>
+        <div class="insight-grid" id="insightGrid2"></div>
+
+        <div class="section-title">
+          <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+          Performance Analysis
+        </div>
+        <div class="controls-row">
+          <div class="control-group" style="max-width:220px">
+            <label for="perfDimensionSelect2">Analyze by</label>
+            <select id="perfDimensionSelect2"></select>
+          </div>
+          <div class="control-group" style="max-width:220px">
+            <label for="perfMeasureSelect2">Measure</label>
+            <select id="perfMeasureSelect2"></select>
+          </div>
+          <div class="control-group" style="max-width:180px">
+            <label for="perfThresholdInput2">Threshold</label>
+            <input type="number" id="perfThresholdInput2" value="0" step="any">
+          </div>
+        </div>
+        <div id="performancePanel2"></div>
+
+        <div class="section-title">
+          <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+          Detailed Summaries
+        </div>
+        <div class="breakdown-controls">
+          <div class="control-group" style="max-width:280px">
+            <label for="breakdownSelect2">Break down by</label>
+            <select id="breakdownSelect2"></select>
+          </div>
+          <div class="control-group" style="flex:0 0 auto">
+            <label class="insights-focus-toggle-label">
+              <input type="checkbox" id="insightsFocusToggle2"> Column-wise Insights
+            </label>
+          </div>
+          <div class="control-group" style="max-width:200px">
+            <label for="insightsFocusDimension2">Insights dimension</label>
+            <select id="insightsFocusDimension2" disabled></select>
+          </div>
+          <div class="control-group" style="max-width:180px">
+            <label for="insightsFocusMeasure2">Insights measure</label>
+            <select id="insightsFocusMeasure2" disabled></select>
+          </div>
+          <div class="control-group" style="flex:0 0 auto">
+            <label>&nbsp;</label>
+            <button class="btn btn-secondary" id="saveViewBtn2" type="button">Save View</button>
+          </div>
+          <div class="control-group" style="flex:0 0 auto">
+            <label>&nbsp;</label>
+            <button class="btn btn-secondary" id="exportViewBtn2" type="button" disabled>Download This View (.xlsx)</button>
+          </div>
+        </div>
+        <div id="columnSelector2"></div>
+        <div class="table-wrap" id="breakdownTableWrap2"></div>
+
+        <div class="section-title">
+          <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+          Group By &amp; Order By <span class="section-hint">Optional, SQL-style — pick field(s) below to group by; nothing changes until you do</span>
+        </div>
+        <div class="groupby-orderby-controls">
+          <div class="control-group" style="flex:2 1 260px">
+            <label>Group by</label>
+            <div id="groupByControls2"></div>
+          </div>
+          <div class="control-group" style="flex:1 1 260px">
+            <label>Order by</label>
+            <div class="orderby-controls-inline" id="orderByControls2"></div>
+          </div>
+          <div class="control-group" style="flex:0 0 auto">
+            <label>&nbsp;</label>
+            <button class="btn btn-secondary" id="exportGroupedBtn2" type="button" disabled>Download Grouped View (.xlsx)</button>
+          </div>
+        </div>
+        <div class="table-wrap" id="groupedTableWrap2"></div>
+
+        <div class="section-title">
+          <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+          Visualize
+        </div>
+        <div class="chart-panel">
+          <div class="chart-controls">
+            <div class="control-group">
+              <label for="chartTypeSelect2">Chart type</label>
+              <select id="chartTypeSelect2">
+                <option value="bar">Bar Chart</option>
+                <option value="line">Line Chart</option>
+                <option value="area">Area Chart</option>
+                <option value="pie">Pie Chart</option>
+                <option value="donut">Donut Chart</option>
+                <option value="histogram">Histogram</option>
+                <option value="heatmap">Heatmap</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label for="chartMetricSelect2">Metric</label>
+              <select id="chartMetricSelect2"></select>
+            </div>
+            <div class="control-group">
+              <label for="chartSourceSelect2">Breakdown</label>
+              <select id="chartSourceSelect2"></select>
+            </div>
+            <div class="control-group" style="flex:0 0 auto">
+              <label>&nbsp;</label>
+              <button class="btn btn-secondary" id="chartExcludeUnspecifiedBtn2" type="button" style="display:none">Exclude Unspecified</button>
+            </div>
+          </div>
+          <div class="chart-canvas-wrap">
+            <canvas id="chartCanvas2"></canvas>
+            <div id="heatmapWrap2" style="display:none"></div>
+            <div class="empty-state" id="chartEmptyState2" style="display:none">Not enough data to render this chart.</div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div><!-- /tabContent-tab2 -->
+
+  <div class="tab-content" id="tabContent-tab3">
+    <section class="tab-intro-section">
+      <div class="tab-intro-inner">
+        <h2 class="tab-intro-title">Secondary Sale</h2>
+        <p class="tab-intro-sub">
+          Upload stockist/secondary sale data (e.g. Employee Name, Product Code, Product, monthly
+          Qty/Value columns, Total Qty, Total Value) to analyze by employee, zone, division,
+          super stockist, or product.
+        </p>
+        <div class="upload-card">
+          <div class="dropzone" id="dropzone3">
+            <div class="dropzone-icon-wrap">
+              <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 16V4m0 0L7 9m5-5l5 5"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
+            </div>
+            <div class="dropzone-title">Upload Secondary Sale Data</div>
+            <div class="dropzone-sub">Drag &amp; drop your file here, or click to browse</div>
+            <div class="dropzone-meta">.xlsx, .xls, .xlsm &nbsp;·&nbsp; Processed locally &nbsp;·&nbsp; Never uploaded</div>
+            <span class="dropzone-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+              Select Excel File
+            </span>
+            <input type="file" id="fileInput3" accept=".xlsx,.xls,.xlsm">
+          </div>
+          <div class="file-chip" id="fileChip3" style="display:none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3v4a1 1 0 001 1h4"/><path d="M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z"/></svg>
+            <span id="fileChipName3"></span>
+            <button id="removeFileBtn3" type="button" aria-label="Remove file">&times;</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <main class="main-content">
+      <div class="controls-panel" id="controlsPanel3">
+        <div class="controls-row">
+          <div class="control-group">
+            <label for="sheetSelect3">Sheet to analyze</label>
+            <select id="sheetSelect3"></select>
+          </div>
+        </div>
+
+        <div class="section-title" style="margin-top:20px">
+          <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+          Confirm detected columns
+        </div>
+        <p style="color:var(--color-text-muted);font-size:0.85rem;margin:-8px 0 14px">
+          Each column below was auto-classified. Review and correct anything that looks wrong before analyzing.
+        </p>
+        <div id="schemaReviewPanel3"></div>
+
+        <div class="controls-row" style="margin-top:20px">
+          <div class="control-group" style="flex:0 0 auto">
+            <label>&nbsp;</label>
+            <button class="btn btn-primary" id="analyzeBtn3" type="button" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
+              Analyze
+            </button>
+          </div>
+          <div class="control-group" style="flex:0 0 auto">
+            <label>&nbsp;</label>
+            <button class="btn btn-secondary" id="exportBtn3" type="button" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+              Download Insights (.xlsx)
+            </button>
+          </div>
+          <div class="control-group" style="flex:0 0 auto">
+            <label>&nbsp;</label>
+            <button class="btn btn-secondary" id="newInsightsBtn3" type="button" disabled>New Insights</button>
+          </div>
+          <div class="control-group" style="flex:0 0 auto">
+            <label>&nbsp;</label>
+            <button class="btn btn-secondary" id="downloadNewInsightsBtn3" type="button" disabled>Download New Insights (.xlsx)</button>
+          </div>
+        </div>
+        <div class="loading-bar" id="loadingBar3">
+          <div class="spinner"></div>
+          <span>Processing in your browser…</span>
+        </div>
+      </div>
+
+      <div class="dashboard" id="dashboard3">
+        <div class="section-title">
+          <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+          Overview
+        </div>
+        <div class="kpi-grid" id="kpiGrid3"></div>
+
+        <div class="section-title">
+          <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+          Filters
+        </div>
+        <div id="filterPanel3"></div>
+
+        <div class="section-title">
+          <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+          Custom Columns <span class="section-hint">Optional — group any column's values into a new one (e.g. State into Zone)</span>
+        </div>
+        <div id="activeDerivedColumns3"></div>
+        <div id="deriveColumnBuilder3"></div>
+
+        <div class="section-title">
+          <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+          Management Insights <span class="section-hint" id="insightsModeLabel3"></span>
+        </div>
+        <div class="insight-grid" id="insightGrid3"></div>
+
+        <div class="section-title">
+          <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+          Performance Analysis
+        </div>
+        <div class="controls-row">
+          <div class="control-group" style="max-width:220px">
+            <label for="perfDimensionSelect3">Analyze by</label>
+            <select id="perfDimensionSelect3"></select>
+          </div>
+          <div class="control-group" style="max-width:220px">
+            <label for="perfMeasureSelect3">Measure</label>
+            <select id="perfMeasureSelect3"></select>
+          </div>
+          <div class="control-group" style="max-width:180px">
+            <label for="perfThresholdInput3">Threshold</label>
+            <input type="number" id="perfThresholdInput3" value="100000" step="any">
+          </div>
+        </div>
+        <div id="performancePanel3"></div>
+
+        <div class="section-title">
+          <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+          Detailed Summaries
+        </div>
+        <div class="breakdown-controls">
+          <div class="control-group" style="max-width:280px">
+            <label for="breakdownSelect3">Break down by</label>
+            <select id="breakdownSelect3"></select>
+          </div>
+          <div class="control-group" style="flex:0 0 auto">
+            <label class="insights-focus-toggle-label">
+              <input type="checkbox" id="insightsFocusToggle3"> Column-wise Insights
+            </label>
+          </div>
+          <div class="control-group" style="max-width:200px">
+            <label for="insightsFocusDimension3">Insights dimension</label>
+            <select id="insightsFocusDimension3" disabled></select>
+          </div>
+          <div class="control-group" style="max-width:180px">
+            <label for="insightsFocusMeasure3">Insights measure</label>
+            <select id="insightsFocusMeasure3" disabled></select>
+          </div>
+          <div class="control-group" style="flex:0 0 auto">
+            <label>&nbsp;</label>
+            <button class="btn btn-secondary" id="saveViewBtn3" type="button">Save View</button>
+          </div>
+          <div class="control-group" style="flex:0 0 auto">
+            <label>&nbsp;</label>
+            <button class="btn btn-secondary" id="exportViewBtn3" type="button" disabled>Download This View (.xlsx)</button>
+          </div>
+        </div>
+        <div id="columnSelector3"></div>
+        <div class="table-wrap" id="breakdownTableWrap3"></div>
+
+        <div class="section-title">
+          <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+          Group By &amp; Order By <span class="section-hint">Optional, SQL-style — pick field(s) below to group by; nothing changes until you do</span>
+        </div>
+        <div class="groupby-orderby-controls">
+          <div class="control-group" style="flex:2 1 260px">
+            <label>Group by</label>
+            <div id="groupByControls3"></div>
+          </div>
+          <div class="control-group" style="flex:1 1 260px">
+            <label>Order by</label>
+            <div class="orderby-controls-inline" id="orderByControls3"></div>
+          </div>
+          <div class="control-group" style="flex:0 0 auto">
+            <label>&nbsp;</label>
+            <button class="btn btn-secondary" id="exportGroupedBtn3" type="button" disabled>Download Grouped View (.xlsx)</button>
+          </div>
+        </div>
+        <div class="table-wrap" id="groupedTableWrap3"></div>
+
+        <div class="section-title">
+          <svg class="leaf" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 2 3 6 3 11c0 6 5 10 9 11 4-1 9-5 9-11 0-5-4-9-9-9zm0 3c3.3 0 6 2.7 6 6 0 4-3 7-6 8-3-1-6-4-6-8 0-3.3 2.7-6 6-6z"/></svg>
+          Visualize
+        </div>
+        <div class="chart-panel">
+          <div class="chart-controls">
+            <div class="control-group">
+              <label for="chartTypeSelect3">Chart type</label>
+              <select id="chartTypeSelect3">
+                <option value="bar">Bar Chart</option>
+                <option value="line">Line Chart</option>
+                <option value="area">Area Chart</option>
+                <option value="pie">Pie Chart</option>
+                <option value="donut">Donut Chart</option>
+                <option value="histogram">Histogram</option>
+                <option value="heatmap">Heatmap</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label for="chartMetricSelect3">Metric</label>
+              <select id="chartMetricSelect3"></select>
+            </div>
+            <div class="control-group">
+              <label for="chartSourceSelect3">Breakdown</label>
+              <select id="chartSourceSelect3"></select>
+            </div>
+            <div class="control-group" style="flex:0 0 auto">
+              <label>&nbsp;</label>
+              <button class="btn btn-secondary" id="chartExcludeUnspecifiedBtn3" type="button" style="display:none">Exclude Unspecified</button>
+            </div>
+          </div>
+          <div class="chart-canvas-wrap">
+            <canvas id="chartCanvas3"></canvas>
+            <div id="heatmapWrap3" style="display:none"></div>
+            <div class="empty-state" id="chartEmptyState3" style="display:none">Not enough data to render this chart.</div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div><!-- /tabContent-tab3 -->
+
   <footer class="app-footer">
     Phyto-Growth-IQ-Studio. All processing happens locally in your browser; Build by POONAM SETIA.
   </footer>
 </div>
 
-<script src="js/theme.js"></script>
-<script src="js/parser.js"></script>
-<script src="js/schema.js"></script>
-<script src="js/analysis.js"></script>
-<script src="js/dashboard.js"></script>
-<script src="js/charts.js"></script>
-<script src="js/exporter.js"></script>
-<script src="js/schemaReview.js"></script>
-<script src="js/app.js"></script>
+<script src="js/auth.js?v=7"></script>
+<script src="js/theme.js?v=7"></script>
+<script src="js/parser.js?v=7"></script>
+<script src="js/schema.js?v=7"></script>
+<script src="js/analysis.js?v=7"></script>
+<script src="js/filters.js?v=7"></script>
+<script src="js/deriveColumn.js?v=7"></script>
+<script src="js/viewPrefs.js?v=7"></script>
+<script src="js/dashboard.js?v=7"></script>
+<script src="js/charts.js?v=7"></script>
+<script src="js/exporter.js?v=7"></script>
+<script src="js/schemaReview.js?v=7"></script>
+<script src="js/app.js?v=7"></script>
 </body>
 </html>
